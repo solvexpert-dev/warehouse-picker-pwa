@@ -82,6 +82,12 @@ body {
   margin: 0 auto;
 }
 
+@media (min-width: 600px) {
+  .login-view-container {
+    max-width: 800px;
+  }
+}
+
 /* Buttons for Warehouse Gloves */
 .btn-massive {
   padding: 2rem;
@@ -147,6 +153,56 @@ body {
 .numpad-btn:active {
   background: var(--electric-blue);
   transform: scale(0.9);
+}
+
+/* Login Specific Responsive Layout */
+.login-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .login-grid {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3rem;
+    padding: 1rem 0;
+  }
+
+  .login-info-section {
+    flex: 1.2;
+    text-align: left !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .login-numpad-section {
+    flex: 1;
+    max-width: 320px;
+  }
+
+  .numpad {
+    gap: 0.75rem;
+    margin-top: 0;
+  }
+
+  .numpad-btn {
+    font-size: 1.5rem;
+    border-radius: 1rem;
+  }
+  
+  .login-header-icon {
+    margin-left: 0 !important;
+    margin-right: auto !important;
+  }
+  
+  .pin-display {
+    justify-content: flex-start !important;
+  }
 }
 
 /* Traffic Lights for Packing */
