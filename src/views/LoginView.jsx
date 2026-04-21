@@ -6,6 +6,7 @@ export default function LoginView({ onLogin }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('solution'); // current | solution
 
   useEffect(() => {
     if (pin.length === 4) {
@@ -29,7 +30,7 @@ export default function LoginView({ onLogin }) {
         setError('Invalid PIN. Please try again.');
         setPin('');
       } else {
-        onLogin(data);
+        onLogin(data, mode);
       }
     } catch (err) {
       setError('Connection error. Try again.');
@@ -51,6 +52,25 @@ export default function LoginView({ onLogin }) {
 
   return (
     <div className="view-container justify-center">
+      <div className="flex gap-4 mb-12">
+        <button 
+          onClick={() => setMode('current')}
+          className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border-2 transition-all ${
+            mode === 'current' ? 'border-error-red bg-error-red/10 text-error-red' : 'border-white/5 bg-navy-lighter/30 text-gray-500'
+          }`}
+        >
+          Current System
+        </button>
+        <button 
+          onClick={() => setMode('solution')}
+          className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border-2 transition-all ${
+            mode === 'solution' ? 'border-electric-blue bg-electric-blue/10 text-electric-blue' : 'border-white/5 bg-navy-lighter/30 text-gray-500'
+          }`}
+        >
+          Our Solution
+        </button>
+      </div>
+
       <div className="text-center mb-12">
         <div className="w-20 h-20 bg-electric-blue/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
           <ShieldCheck className="text-electric-blue" size={40} />
