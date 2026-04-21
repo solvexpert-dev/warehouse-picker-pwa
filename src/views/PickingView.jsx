@@ -36,23 +36,64 @@ export default function PickingView({ user, onFinish, onBack }) {
 
     if (activeSession) {
       setSession(activeSession);
-      const { data: items } = await supabase
+      const { data: rawItems } = await supabase
         .from('pick_items')
         .select(`
           *,
           locations (location_code),
           order_items (
-            products (name)
+            quantity,
+            orders (
+              id,
+              order_reference,
+              channels (name)
+            ),
+            products (id, name)
           )
         `)
         .eq('session_id', activeSession.id)
-        .eq('picked', false)
-        .order('id', { ascending: true });
-      
-      setPicks(items || []);
+        .eq('picked', false);
+
+      if (rawItems) {
+        let processedPicks = [];
+
+        if (mode === 'product_batch') {
+          // Group by product_id and location_id
+          const groups = {};
+          rawItems.forEach(item => {
+            const key = `${item.order_items.products.id}-${item.location_id}`;
+            if (!groups[key]) {
+              groups[key] = {
+                ...item,
+                ids: [item.id],
+                batchQuantity: item.order_items.quantity,
+                isBatch: true,
+                channels: [item.order_items.orders.channels.name]
+              };
+            } else {
+              groups[key].ids.push(item.id);
+              groups[key].batchQuantity += item.order_items.quantity;
+              if (!groups[key].channels.includes(item.order_items.orders.channels.name)) {
+                groups[key].channels.push(item.order_items.orders.channels.name);
+              }
+            }
+          });
+          processedPicks = Object.values(groups).sort((a, b) => 
+            a.locations.location_code.localeCompare(b.locations.location_code)
+          );
+        } else {
+          // Channel Priority
+          processedPicks = [...rawItems].sort((a, b) => {
+            const channelA = a.order_items?.orders?.channels?.name || '';
+            const channelB = b.order_items?.orders?.channels?.name || '';
+            if (channelA !== channelB) return channelA.localeCompare(channelB);
+            return a.locations.location_code.localeCompare(b.locations.location_code);
+          });
+        }
+        
+        setPicks(processedPicks);
+      }
     } else {
-      // Create a dummy session for demo if none exists
-      // In a real app, this would be assigned by a manager
       setSession(null);
     }
     setLoading(false);
@@ -63,11 +104,13 @@ export default function PickingView({ user, onFinish, onBack }) {
     
     const currentPick = picks[currentIndex];
     
-    // Update Supabase
+    // Update Supabase (Handle batch or single)
+    const idsToUpdate = currentPick.isBatch ? currentPick.ids : [currentPick.id];
+    
     await supabase
       .from('pick_items')
       .update({ picked: true, picked_at: new Date().toISOString() })
-      .eq('id', currentPick.id);
+      .in('id', idsToUpdate);
 
     const nextIndex = currentIndex + 1;
     if (nextIndex < picks.length) {
@@ -75,7 +118,7 @@ export default function PickingView({ user, onFinish, onBack }) {
     } else {
       const durationHours = (Date.now() - startTime) / (1000 * 60 * 60);
       onFinish({
-        totalPicks: picks.length,
+        totalPicks: picks.reduce((acc, p) => acc + (p.isBatch ? p.ids.length : 1), 0),
         timeTaken: Date.now() - startTime,
         picksPerHour: Math.round(picks.length / durationHours)
       });
@@ -151,8 +194,15 @@ export default function PickingView({ user, onFinish, onBack }) {
           <button onClick={onBack} className="p-2 -ml-2 text-gray-500">
             <ChevronLeft size={32} />
           </button>
-          <div className="bg-navy-lighter px-4 py-2 rounded-full border border-white/5 font-black text-sm tabular-nums">
-            {currentIndex + 1} / {picks.length} Items Remaining
+          <div className="flex flex-col items-end">
+            <div className="bg-navy-lighter px-4 py-2 rounded-full border border-white/5 font-black text-sm tabular-nums">
+              {currentIndex + 1} / {picks.length} {currentPick.isBatch ? 'Batches' : 'Items'} Remaining
+            </div>
+            {mode === 'channel_priority' && (
+              <span className="text-[10px] font-black text-electric-blue uppercase tracking-widest mt-2 mr-2">
+                Channel: {currentPick.order_items?.orders?.channels?.name}
+              </span>
+            )}
           </div>
         </div>
 
@@ -171,19 +221,32 @@ export default function PickingView({ user, onFinish, onBack }) {
            <div className="absolute top-0 right-0 p-4 opacity-5">
              <Package size={120} />
            </div>
-           <p className="text-gray-500 font-black uppercase tracking-widest text-xs mb-2">Active SKU</p>
-           <h2 className="text-product text-white mb-8">
+           
+           <div className="flex justify-between items-start mb-2">
+              <p className="text-gray-500 font-black uppercase tracking-widest text-xs">Active SKU</p>
+              {currentPick.isBatch && (
+                <div className="bg-orange-500/10 text-orange-400 px-3 py-1 rounded-lg border border-orange-500/20 text-[10px] font-black uppercase tracking-widest">
+                  Batch Pick
+                </div>
+              )}
+           </div>
+
+           <h2 className="text-product text-white mb-8 leading-tight">
              {currentPick.order_items?.products?.name || 'Unknown Product'}
            </h2>
            
            <div className="flex gap-4">
-              <div className="bg-electric-blue text-white px-6 py-4 rounded-3xl flex flex-col justify-center">
-                <p className="text-[10px] font-black uppercase opacity-70">Quantity</p>
-                <p className="text-5xl font-black">{currentPick.quantity || 1}</p>
+              <div className="bg-electric-blue text-white px-6 py-4 rounded-3xl flex flex-col justify-center min-w-[120px]">
+                <p className="text-[10px] font-black uppercase opacity-70">Total Qty</p>
+                <p className="text-5xl font-black">{currentPick.isBatch ? currentPick.batchQuantity : currentPick.order_items.quantity}</p>
               </div>
               <div className="flex-1 bg-bg-deep-navy/50 rounded-3xl p-4 flex flex-col justify-center border border-white/5">
-                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Awaiting Verification</p>
-                 <p className="text-lg font-bold text-gray-300">Scan Required</p>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                   {currentPick.isBatch ? `${currentPick.ids.length} Orders Combined` : 'Single Order Pick'}
+                 </p>
+                 <p className="text-sm font-bold text-gray-300 truncate">
+                   {currentPick.isBatch ? currentPick.channels.join(', ') : currentPick.order_items.orders.order_reference}
+                 </p>
               </div>
            </div>
         </div>

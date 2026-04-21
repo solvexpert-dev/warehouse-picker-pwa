@@ -6,30 +6,21 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 async function debug() {
-  console.log('Checking Supabase connection...')
-  const { data: initialData, error: fetchError } = await supabase.from('staff').select('*')
-  
-  if (fetchError) {
-    console.error('Error fetching staff table:', fetchError.message)
-    return
-  }
+  console.log('Checking Channels...')
+  const { data: channels } = await supabase.from('channels').select('*')
+  console.log('Channels:', channels?.map(c => c.name).join(', ') || 'None')
 
-  if (initialData.length === 0) {
-    console.log('Staff table is EMPTY. Attempting to seed Admin User...')
-    const { data: insertData, error: insertError } = await supabase
-      .from('staff')
-      .insert([{ name: 'Admin User', pin: '1234', role: 'PICKER' }])
-      .select()
-    
-    if (insertError) {
-      console.error('Insert failed (likely RLS):', insertError.message)
-    } else {
-      console.log('SUCCESS! Admin User seeded:', insertData[0])
-    }
-  } else {
-    console.log('Found staff members:', initialData.length)
-    initialData.forEach(s => {
-      console.log(`- Name: ${s.name}, PIN: ${s.pin}, Role: ${s.role}`)
+  console.log('Checking pending picks...')
+  const { data: items } = await supabase
+    .from('pick_items')
+    .select('*, order_items(*, orders(*, channels(*)), products(*)), locations(*)')
+    .eq('picked', false)
+    .limit(5);
+  
+  if (items) {
+    console.log(`Found ${items.length} pending items. Sample:`)
+    items.forEach(i => {
+      console.log(`- Product: ${i.order_items?.products?.name}, Channel: ${i.order_items?.orders?.channels?.name}, Loc: ${i.locations?.location_code}`)
     })
   }
 }

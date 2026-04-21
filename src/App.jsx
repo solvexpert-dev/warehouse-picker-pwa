@@ -18,13 +18,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Views
 import LoginView from './views/LoginView';
 import RoleSelectView from './views/RoleSelectView';
+import ModeSelectView from './views/ModeSelectView';
 import PickingView from './views/PickingView';
 import PackingView from './views/PackingView';
 import StatsView from './views/StatsView';
 
 function App() {
-  const [view, setView] = useState('login'); // login, role_select, picking, packing, stats
+  const [view, setView] = useState('login'); // login, role_select, mode_select, picking, packing, stats
   const [user, setUser] = useState(null);
+  const [pickingMode, setPickingMode] = useState(null); // channel_priority, product_batch
   const [sessionStats, setSessionStats] = useState(null);
 
   const handleLogin = (staffMember) => {
@@ -34,7 +36,21 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
+    setPickingMode(null);
     setView('login');
+  };
+
+  const handleRoleSelect = (role) => {
+    if (role === 'picking') {
+      setView('mode_select');
+    } else {
+      setView(role);
+    }
+  };
+
+  const handleModeSelect = (mode) => {
+    setPickingMode(mode);
+    setView('picking');
   };
 
   const finishSession = (stats) => {
@@ -47,9 +63,11 @@ function App() {
       case 'login':
         return <LoginView onLogin={handleLogin} />;
       case 'role_select':
-        return <RoleSelectView onSelect={(role) => setView(role)} onBack={handleLogout} />;
+        return <RoleSelectView onSelect={handleRoleSelect} onBack={handleLogout} />;
+      case 'mode_select':
+        return <ModeSelectView onSelect={handleModeSelect} onBack={() => setView('role_select')} />;
       case 'picking':
-        return <PickingView user={user} onFinish={finishSession} onBack={() => setView('role_select')} />;
+        return <PickingView user={user} mode={pickingMode} onFinish={finishSession} onBack={() => setView('mode_select')} />;
       case 'packing':
         return <PackingView user={user} onFinish={finishSession} onBack={() => setView('role_select')} />;
       case 'stats':
